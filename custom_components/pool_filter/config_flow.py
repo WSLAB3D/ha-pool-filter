@@ -8,6 +8,7 @@ from homeassistant.helpers import selector
 from .const import (
     CONF_BATTERY_PERCENTAGE,
     CONF_BATTERY_POWER,
+    CONF_COUNTDOWN_ENTITY,
     CONF_FILTER_POWER,
     CONF_FILTER_SWITCH,
     CONF_GRID_IMPORT,
@@ -15,6 +16,7 @@ from .const import (
     CONF_LOOKBACK_DAYS,
     CONF_MAX_GRID_IMPORT,
     CONF_MIN_BATTERY_PERCENTAGE,
+    CONF_NOTIFY_SERVICE,
     CONF_PV_POWER,
     CONF_SOLAR_MARGIN,
     CONF_TARGET_HOURS,
@@ -61,6 +63,16 @@ def _build_schema(defaults: dict | None = None) -> vol.Schema:
                 CONF_BATTERY_PERCENTAGE, default=defaults.get(CONF_BATTERY_PERCENTAGE, "")
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="sensor")
+            ),
+            vol.Optional(
+                CONF_COUNTDOWN_ENTITY, default=defaults.get(CONF_COUNTDOWN_ENTITY, "")
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="number")
+            ),
+            vol.Optional(
+                CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
+            ): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
             ),
             vol.Required(
                 CONF_MIN_BATTERY_PERCENTAGE,

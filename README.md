@@ -33,6 +33,11 @@ the filter for any remaining deficit regardless of solar conditions.
 - **Adjustable settings**: target hours, lookback days, filter power, solar
   margin, max grid import, min battery % and the top-up window can all be changed
   from the UI.
+- **Fallback countdown timer**: if the switch has a countdown `number` entity
+  (e.g. `number.zbplug3_countdown`), it will be set to the remaining runtime so
+  the plug turns itself off if Home Assistant stops communicating.
+- **Offline alert**: optional notification service that fires if the switch
+  becomes `unavailable` or `unknown` while it was on.
 
 ## Entities
 
@@ -61,7 +66,9 @@ the filter for any remaining deficit regardless of solar conditions.
 6. Add the integration via **Settings > Devices & Services > Add Integration**.
 7. Select the pool filter switch, PV, house consumption, grid import, battery
    percentage sensor and configure the margins and top-up window.
-8. You can reconfigure the selected entities later by going to
+8. *(Optional)* Select a fallback countdown `number` entity and/or a notification
+   service (e.g. `notify.mobile_app_wills_iphone`).
+9. You can reconfigure the selected entities later by going to
    **Settings > Devices & Services > Pool Filter > Configure**.
 
 > The repository must be public or your HACS installation must have access to the
@@ -75,5 +82,7 @@ the filter for any remaining deficit regardless of solar conditions.
 3. Add the integration via **Settings > Devices & Services > Add Integration**.
 4. Select the pool filter switch, PV, house consumption, grid import, battery
    percentage sensor and configure the margins and top-up window.
-5. You can reconfigure the selected entities later by going to
+5. *(Optional)* Select a fallback countdown `number` entity and/or a notification
+   service.
+6. You can reconfigure the selected entities later by going to
    **Settings > Devices & Services > Pool Filter > Configure**.

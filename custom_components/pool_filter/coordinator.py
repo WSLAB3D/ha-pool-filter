@@ -3,16 +3,18 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, time, timedelta
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_BATTERY_PERCENTAGE,
+    CONF_COUNTDOWN_ENTITY,
     CONF_FILTER_POWER,
     CONF_FILTER_SWITCH,
     CONF_GRID_IMPORT,
@@ -20,6 +22,7 @@ from .const import (
     CONF_LOOKBACK_DAYS,
     CONF_MAX_GRID_IMPORT,
     CONF_MIN_BATTERY_PERCENTAGE,
+    CONF_NOTIFY_SERVICE,
     CONF_PV_POWER,
     CONF_SOLAR_MARGIN,
     CONF_TARGET_HOURS,
@@ -74,6 +77,7 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
             update_interval=DEFAULT_UPDATE_INTERVAL,
             config_entry=entry,
         )
+        self._unsub_state_change: Callable[[], None] | None = None
 
     @property
     def auto_control(self) -> bool:
@@ -103,6 +107,74 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
     def get_setting(self, key: str, default: Any = None) -> Any:
         """Return a setting, falling back to config entry data."""
         return self._settings.get(key, self.entry.data.get(key, default))
+
+    async def async_setup(self) -> None:
+        """Load storage and start listeners."""
+        await self._async_setup()
+
+        filter_entity = self.entry.data[CONF_FILTER_SWITCH]
+
+        @callback
+        def _state_change(event: Event) -> None:
+            """Notify if the filter switch goes unavailable/unknown while on."""
+            if not self.entry.data.get(CONF_NOTIFY_SERVICE):
+                return
+            old_state = event.data.get("old_state")
+            new_state = event.data.get("new_state")
+            if (
+                old_state is not None
+                and old_state.state == "on"
+                and new_state is not None
+                and new_state.state in ("unavailable", "unknown")
+            ):
+                self.hass.async_create_task(
+                    self._async_send_notification(
+                        "Pool Filter Plug Offline",
+                        f"Pool Filter plug ({filter_entity}) is now {new_state.state} "
+                        "and was last on. Please check it is not stuck running.",
+                    )
+                )
+
+        self._unsub_state_change = async_track_state_change_event(
+            self.hass, filter_entity, _state_change
+        )
+
+    async def async_unload(self) -> None:
+        """Cancel listeners."""
+        if self._unsub_state_change is not None:
+            self._unsub_state_change()
+            self._unsub_state_change = None
+
+    async def _async_send_notification(self, title: str, message: str) -> None:
+        """Send a notification to the configured service."""
+        service = self.entry.data.get(CONF_NOTIFY_SERVICE, "")
+        if not service or "." not in service:
+            return
+        domain, service_name = service.split(".", 1)
+        try:
+            await self.hass.services.async_call(
+                domain,
+                service_name,
+                {"title": title, "message": message},
+                blocking=False,
+            )
+        except Exception as exc:
+            _LOGGER.error("Failed to send notification: %s", exc)
+
+    async def _async_set_countdown(self, seconds: int) -> None:
+        """Set the switch's fallback countdown timer, if configured."""
+        countdown_entity = self.entry.data.get(CONF_COUNTDOWN_ENTITY)
+        if not countdown_entity:
+            return
+        try:
+            await self.hass.services.async_call(
+                "number",
+                "set_value",
+                {"entity_id": countdown_entity, "value": max(seconds, 0)},
+                blocking=False,
+            )
+        except Exception as exc:
+            _LOGGER.error("Failed to set countdown %s: %s", countdown_entity, exc)
 
     async def _async_setup(self) -> None:
         """Load stored runtime and auto-control state."""
@@ -254,8 +326,15 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
                     {"entity_id": filter_entity},
                     blocking=True,
                 )
+                if desired_state == "on":
+                    await self._async_set_countdown(int(deficit))
+                else:
+                    await self._async_set_countdown(0)
             except Exception as exc:
                 _LOGGER.error("Failed to set filter switch %s: %s", filter_entity, exc)
+        elif desired_state == "on" and current_state == "on":
+            # Keep the switch's own fallback timer in sync with remaining runtime
+            await self._async_set_countdown(int(deficit))
 
         await self._async_save_settings()
 
