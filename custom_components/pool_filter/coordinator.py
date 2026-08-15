@@ -89,6 +89,14 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
     async def async_set_setting(self, key: str, value: Any) -> None:
         """Update a runtime setting."""
         self._settings[key] = value
+
+        # Persist configuration keys through the config entry so changes survive
+        # restarts and updates made in the OptionsFlow are reflected immediately.
+        if key != "auto_control":
+            new_data = dict(self.entry.data)
+            new_data[key] = value
+            self.hass.config_entries.async_update_entry(self.entry, data=new_data)
+
         await self._async_save_settings()
         await self.async_request_refresh()
 
@@ -97,7 +105,7 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
         return self._settings.get(key, self.entry.data.get(key, default))
 
     async def _async_setup(self) -> None:
-        """Load stored runtime and settings."""
+        """Load stored runtime and auto-control state."""
         stored = await self._store.async_load()
         if stored is None:
             stored = {
@@ -108,24 +116,13 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
             }
         self._store_data = stored
 
-        settings = dict(stored.get("settings", {}))
-        defaults = {
-            "auto_control": True,
-            CONF_FILTER_POWER: self.entry.data.get(CONF_FILTER_POWER, 1150),
-            CONF_SOLAR_MARGIN: self.entry.data.get(CONF_SOLAR_MARGIN, 300),
-            CONF_MAX_GRID_IMPORT: self.entry.data.get(CONF_MAX_GRID_IMPORT, 100),
-            CONF_MIN_BATTERY_PERCENTAGE: self.entry.data.get(CONF_MIN_BATTERY_PERCENTAGE, 20),
-            CONF_TARGET_HOURS: self.entry.data.get(CONF_TARGET_HOURS, 4),
-            CONF_LOOKBACK_DAYS: self.entry.data.get(CONF_LOOKBACK_DAYS, 2),
-            CONF_TOP_UP_START: self.entry.data.get(CONF_TOP_UP_START, "14:30"),
-            CONF_TOP_UP_END: self.entry.data.get(CONF_TOP_UP_END, "16:30"),
+        # Only auto_control is kept in local storage. Config values (target
+        # hours, margins, top-up window, etc.) live in entry.data so the
+        # OptionsFlow and dashboard numbers always stay in sync.
+        self._settings = {
+            "auto_control": stored.get("settings", {}).get("auto_control", True)
         }
-        for key, value in defaults.items():
-            if key not in settings:
-                settings[key] = value
-        self._settings = settings
-        self._store_data["settings"] = self._settings
-        await self._store.async_save(self._store_data)
+        await self._async_save_settings()
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Update runtime and decide filter state."""
@@ -260,8 +257,7 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
             except Exception as exc:
                 _LOGGER.error("Failed to set filter switch %s: %s", filter_entity, exc)
 
-        self._store_data["settings"] = self._settings
-        await self._store.async_save(self._store_data)
+        await self._async_save_settings()
 
         return {
             "runtime_seconds": runtime_seconds,
@@ -277,6 +273,8 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
         }
 
     async def _async_save_settings(self) -> None:
-        """Persist settings."""
-        self._store_data["settings"] = self._settings
+        """Persist runtime events and auto-control flag."""
+        self._store_data["settings"] = {
+            "auto_control": self._settings.get("auto_control", True)
+        }
         await self._store.async_save(self._store_data)
