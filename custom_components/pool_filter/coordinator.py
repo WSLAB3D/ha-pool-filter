@@ -162,15 +162,33 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Failed to send notification: %s", exc)
 
     async def _async_set_countdown(self, seconds: int) -> None:
-        """Set the switch's fallback countdown timer, if configured."""
+        """Set the switch's fallback countdown timer, if configured.
+
+        If the configured timer entity is unavailable or missing, this is a
+        no-op so the integration still works for switches without a timer.
+        """
         countdown_entity = self.entry.data.get(CONF_COUNTDOWN_ENTITY)
         if not countdown_entity:
             return
+
+        state = self.hass.states.get(countdown_entity)
+        if state is None or state.state in ("unknown", "unavailable", "none"):
+            return
+
+        # Clamp to the number entity's max so the service call does not fail.
+        max_value = state.attributes.get("max")
+        value = max(seconds, 0)
+        if max_value is not None:
+            try:
+                value = min(value, float(max_value))
+            except (ValueError, TypeError):
+                pass
+
         try:
             await self.hass.services.async_call(
                 "number",
                 "set_value",
-                {"entity_id": countdown_entity, "value": max(seconds, 0)},
+                {"entity_id": countdown_entity, "value": value},
                 blocking=False,
             )
         except Exception as exc:
