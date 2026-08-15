@@ -1,0 +1,16 @@
+"""Constants for the Pool Filter integration."""
+
+DOMAIN = "pool_filter"
+
+CONF_FILTER_SWITCH = "filter_switch"
+CONF_PV_POWER = "pv_power"
+CONF_HOUSE_CONSUMPTION = "house_consumption"
+CONF_GRID_IMPORT = "grid_import"
+CONF_BATTERY_POWER = "battery_power"
+CONF_FILTER_POWER = "filter_power"
+CONF_SOLAR_MARGIN = "solar_margin"
+CONF_MAX_GRID_IMPORT = "max_grid_import"
+CONF_TARGET_HOURS = "target_hours"
+CONF_LOOKBACK_DAYS = "lookback_days"
+CONF_TOP_UP_START = "top_up_start"
+CONF_TOP_UP_END = "top_up_end"
