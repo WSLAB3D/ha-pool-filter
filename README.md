@@ -8,7 +8,7 @@ A Home Assistant **add-on** is a separate Docker container. A **custom component
 is Python code that runs inside Home Assistant. For this use case a custom
 component is simpler, lighter and easier to deploy: just copy the folder into
 `/config/custom_components`, restart HA, and add the integration. You do not need
-Docker, HACS or a separate service.
+Docker or a separate service.
 
 ## Goal
 
@@ -51,7 +51,23 @@ the filter for any remaining deficit regardless of solar conditions.
 - `time.pool_filter_top_up_start`
 - `time.pool_filter_top_up_end`
 
-## Installation
+## Installation with HACS (recommended)
+
+1. Make sure [HACS](https://hacs.xyz/) is installed.
+2. In HACS, go to **Integrations > Custom repositories**.
+3. Add `https://github.com/WSLAB3D/ha-pool-filter` with category **Integration**.
+4. Install the **Pool Filter** integration.
+5. Restart Home Assistant.
+6. Add the integration via **Settings > Devices & Services > Add Integration**.
+7. Select the pool filter switch, PV, house consumption, grid import, battery
+   percentage sensor and configure the margins and top-up window.
+8. You can reconfigure the selected entities later by going to
+   **Settings > Devices & Services > Pool Filter > Configure**.
+
+> The repository must be public or your HACS installation must have access to the
+> private GitHub repository.
+
+## Manual installation
 
 1. Copy `custom_components/pool_filter` into your Home Assistant
    `/config/custom_components` directory.
