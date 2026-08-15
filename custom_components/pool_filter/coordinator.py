@@ -12,12 +12,14 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_BATTERY_PERCENTAGE,
     CONF_FILTER_POWER,
     CONF_FILTER_SWITCH,
     CONF_GRID_IMPORT,
     CONF_HOUSE_CONSUMPTION,
     CONF_LOOKBACK_DAYS,
     CONF_MAX_GRID_IMPORT,
+    CONF_MIN_BATTERY_PERCENTAGE,
     CONF_PV_POWER,
     CONF_SOLAR_MARGIN,
     CONF_TARGET_HOURS,
@@ -112,6 +114,7 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
             CONF_FILTER_POWER: self.entry.data.get(CONF_FILTER_POWER, 1150),
             CONF_SOLAR_MARGIN: self.entry.data.get(CONF_SOLAR_MARGIN, 300),
             CONF_MAX_GRID_IMPORT: self.entry.data.get(CONF_MAX_GRID_IMPORT, 100),
+            CONF_MIN_BATTERY_PERCENTAGE: self.entry.data.get(CONF_MIN_BATTERY_PERCENTAGE, 20),
             CONF_TARGET_HOURS: self.entry.data.get(CONF_TARGET_HOURS, 4),
             CONF_LOOKBACK_DAYS: self.entry.data.get(CONF_LOOKBACK_DAYS, 2),
             CONF_TOP_UP_START: self.entry.data.get(CONF_TOP_UP_START, "14:30"),
@@ -207,16 +210,27 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
         if grid_entity:
             grid_import = _safe_float(self.hass.states.get(grid_entity), 0.0)
 
+        battery_percentage = 100.0
+        battery_entity = self.entry.data.get(CONF_BATTERY_PERCENTAGE)
+        if battery_entity:
+            battery_percentage = _safe_float(
+                self.hass.states.get(battery_entity), 100.0
+            )
+
         pv = _safe_float(pv_state, 0.0)
         house = _safe_float(house_state, 0.0)
 
         filter_power = self.get_setting(CONF_FILTER_POWER, 1150)
         solar_margin = self.get_setting(CONF_SOLAR_MARGIN, 300)
         max_grid_import = self.get_setting(CONF_MAX_GRID_IMPORT, 100)
+        min_battery_percentage = self.get_setting(CONF_MIN_BATTERY_PERCENTAGE, 20)
+
+        battery_ok = battery_percentage >= min_battery_percentage
 
         solar_ok = (
             pv >= house + filter_power + solar_margin
             and grid_import <= max_grid_import
+            and battery_ok
         )
 
         desired_state: str | None = None
@@ -256,6 +270,7 @@ class PoolFilterCoordinator(DataUpdateCoordinator):
             "current_state": current_state,
             "in_top_up": in_top_up,
             "solar_ok": solar_ok,
+            "battery_ok": battery_ok,
             "auto_control": self.auto_control,
             "settings": self._settings,
             "events_count": len(kept_events),

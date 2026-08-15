@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower, UnitOfTime
+from homeassistant.const import PERCENTAGE, UnitOfPower, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -13,6 +13,7 @@ from .const import (
     CONF_FILTER_POWER,
     CONF_LOOKBACK_DAYS,
     CONF_MAX_GRID_IMPORT,
+    CONF_MIN_BATTERY_PERCENTAGE,
     CONF_SOLAR_MARGIN,
     CONF_TARGET_HOURS,
     DOMAIN,
@@ -34,6 +35,7 @@ async def async_setup_entry(
             PoolFilterFilterPowerNumber(coordinator),
             PoolFilterSolarMarginNumber(coordinator),
             PoolFilterMaxGridImportNumber(coordinator),
+            PoolFilterMinBatteryPercentageNumber(coordinator),
         ]
     )
 
@@ -161,4 +163,20 @@ class PoolFilterMaxGridImportNumber(PoolFilterNumber):
             50,
             UnitOfPower.WATT,
             NumberDeviceClass.POWER,
+        )
+
+
+class PoolFilterMinBatteryPercentageNumber(PoolFilterNumber):
+    """Minimum battery percentage required for solar mode."""
+
+    def __init__(self, coordinator: PoolFilterCoordinator) -> None:
+        """Initialize."""
+        super().__init__(
+            coordinator,
+            CONF_MIN_BATTERY_PERCENTAGE,
+            "Min battery percentage",
+            0,
+            100,
+            1,
+            PERCENTAGE,
         )

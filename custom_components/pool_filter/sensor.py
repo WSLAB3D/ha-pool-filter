@@ -26,6 +26,7 @@ async def async_setup_entry(
             PoolFilterDeficitSensor(coordinator),
             PoolFilterStateSensor(coordinator),
             PoolFilterSolarOkSensor(coordinator),
+            PoolFilterBatteryOkSensor(coordinator),
         ]
     )
 
@@ -107,3 +108,16 @@ class PoolFilterSolarOkSensor(PoolFilterSensor):
     def native_value(self) -> str:
         """Return yes/no."""
         return "yes" if self.coordinator.data.get("solar_ok") else "no"
+
+
+class PoolFilterBatteryOkSensor(PoolFilterSensor):
+    """Whether battery level is sufficient for solar mode."""
+
+    def __init__(self, coordinator: PoolFilterCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "battery_ok", "Battery OK")
+
+    @property
+    def native_value(self) -> str:
+        """Return yes/no."""
+        return "yes" if self.coordinator.data.get("battery_ok") else "no"
